@@ -112,20 +112,24 @@ export default function PostCreateForm() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting || content.trim().length === 0}
-          className="w-full rounded-2xl bg-gradient-to-r from-pastel-pink-400 to-pastel-purple-500 px-6 py-4 font-medium text-white shadow-soft transition-all hover:shadow-soft-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="animate-spin">⏳</span>
-              投稿中...
-            </span>
-          ) : (
-            '投稿する'
-          )}
-        </button>
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={isSubmitting || content.trim().length === 0}
+            className="w-full rounded-2xl bg-gradient-to-r from-pastel-pink-400 to-pastel-purple-500 px-6 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-lg"
+          >
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin">⏳</span>
+                投稿中...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                ✨ 投稿する
+              </span>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );

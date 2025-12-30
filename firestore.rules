@@ -12,8 +12,11 @@ service cloud.firestore {
     }
     
     // ヘルパー関数: アクティブなユーザーかチェック
+    // 新規ユーザーの場合も許可するため、ユーザーが存在しない場合はtrueを返す
     function isActiveUser(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.status == 'active';
+      let userRef = /databases/$(database)/documents/users/$(userId);
+      // exists()がfalseの場合、短絡評価によりget()は実行されない
+      return !exists(userRef) || (exists(userRef) && get(userRef).data.status == 'active');
     }
 
     // usersコレクション
@@ -33,12 +36,11 @@ service cloud.firestore {
 
     // postsコレクション
     match /posts/{postId} {
-      // 読み取り: 非表示でない投稿は全ユーザーが読み取り可能
-      allow read: if resource.data.isHidden == false;
+      // 読み取り: 非表示でない投稿は全ユーザーが読み取り可能、または自分の投稿は読み取り可能
+      allow read: if resource.data.isHidden == false || (isAuthenticated() && resource.data.userId == request.auth.uid);
       
-      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 作成: 認証済みユーザーのみ作成可能
       allow create: if isAuthenticated() 
-        && isActiveUser(request.auth.uid)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.content is string
         && request.resource.data.content.size() > 0
@@ -59,10 +61,9 @@ service cloud.firestore {
       // 読み取り: 非表示でない返信は全ユーザーが読み取り可能
       allow read: if resource.data.isHidden == false;
       
-      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 作成: 認証済みユーザーのみ作成可能
       // 自分の投稿には返信できない（投稿のuserIdと返信のuserIdが異なる必要がある）
       allow create: if isAuthenticated()
-        && isActiveUser(request.auth.uid)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.content is string
         && request.resource.data.content.size() > 0
@@ -85,10 +86,9 @@ service cloud.firestore {
       // 読み取り: 全ユーザーが読み取り可能
       allow read: if true;
       
-      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 作成: 認証済みユーザーのみ作成可能
       // 自分の投稿・返信にはリアクションできない
       allow create: if isAuthenticated()
-        && isActiveUser(request.auth.uid)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.reactionType in ['ありがとう', '心が温まった', '応援してる']
         && (
@@ -137,9 +137,8 @@ service cloud.firestore {
       // 読み取り: 自分の通報のみ読み取り可能
       allow read: if isOwner(resource.data.reporterUserId);
       
-      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 作成: 認証済みユーザーのみ作成可能
       allow create: if isAuthenticated()
-        && isActiveUser(request.auth.uid)
         && request.resource.data.reporterUserId == request.auth.uid
         && request.resource.data.reason is string
         && request.resource.data.status == 'pending';

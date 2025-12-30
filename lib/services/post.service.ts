@@ -129,30 +129,45 @@ export class PostService {
    * 投稿を作成
    */
   static async createPost(data: CreatePostData): Promise<string> {
+    console.log('[PostService.createPost] Starting post creation for user:', data.userId);
+    
     // NGワードチェック
-    const filteredContent = filterNGWords(data.content);
-    if (filteredContent !== data.content) {
+    console.log('[PostService.createPost] Checking NG words...');
+    const filterResult = filterNGWords(data.content);
+    if (!filterResult.passed) {
+      console.error('[PostService.createPost] NG words detected:', filterResult.matchedWords);
       throw new Error('投稿内容に不適切な表現が含まれています。');
     }
+    console.log('[PostService.createPost] NG words check passed');
 
     // 1日の投稿数制限チェック
+    console.log('[PostService.createPost] Checking daily post limit...');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStart = Timestamp.fromDate(today);
 
-    const userPostsSnapshot = await getDocs(
-      query(
-        getCollectionRef(this.COLLECTION_NAME),
-        where('userId', '==', data.userId),
-        where('createdAt', '>=', todayStart),
-        orderBy('createdAt', 'desc')
-      )
-    );
+    try {
+      const userPostsSnapshot = await getDocs(
+        query(
+          getCollectionRef(this.COLLECTION_NAME),
+          where('userId', '==', data.userId),
+          where('createdAt', '>=', todayStart),
+          orderBy('createdAt', 'desc')
+        )
+      );
+      console.log('[PostService.createPost] Daily post check completed, count:', userPostsSnapshot.size);
 
-    if (userPostsSnapshot.size >= this.MAX_POSTS_PER_DAY) {
-      throw new Error(`1日の投稿数は${this.MAX_POSTS_PER_DAY}件までです。`);
+      if (userPostsSnapshot.size >= this.MAX_POSTS_PER_DAY) {
+        throw new Error(`1日の投稿数は${this.MAX_POSTS_PER_DAY}件までです。`);
+      }
+    } catch (error: any) {
+      console.error('[PostService.createPost] Error during daily post limit check:', error);
+      console.error('[PostService.createPost] Error code:', error?.code);
+      console.error('[PostService.createPost] Error message:', error?.message);
+      throw error;
     }
 
+    console.log('[PostService.createPost] Creating post object...');
     const postId = `post_${data.userId}_${Date.now()}`;
     const post: Post = {
       postId,
@@ -160,12 +175,29 @@ export class PostService {
       content: data.content,
       isHidden: false,
       reportCount: 0,
-      reactionCount: 0,
       createdAt: Timestamp.now(),
     };
 
-    await createDocument<Post>(this.COLLECTION_NAME, postId, post);
-    return postId;
+    try {
+      console.log('[PostService.createPost] Creating post with data:', {
+        postId,
+        userId: post.userId,
+        content: post.content.substring(0, 50) + '...',
+        isHidden: post.isHidden,
+        reportCount: post.reportCount,
+        createdAt: post.createdAt?.toDate?.() || post.createdAt,
+      });
+      console.log('Current user:', data.userId);
+      await createDocument<Post>(this.COLLECTION_NAME, postId, post);
+      return postId;
+    } catch (error: any) {
+      console.error('PostService.createPost error:', error);
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+      console.error('Post data:', JSON.stringify(post, null, 2));
+      console.error('PostId:', postId);
+      throw error;
+    }
   }
 
   /**

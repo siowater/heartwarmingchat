@@ -52,10 +52,35 @@ export const createDocument = async <T extends Record<string, unknown>>(
   data: Omit<T, 'id'>
 ): Promise<void> => {
   const docRef = getDocRef(collectionName, docId);
-  await setDoc(docRef, {
-    ...data,
-    createdAt: serverTimestamp(),
+  console.log('[createDocument] Starting document creation:', {
+    collectionName,
+    docId,
+    dataKeys: Object.keys(data),
+    dataPreview: Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [
+        key,
+        value instanceof Date ? value.toISOString() : 
+        typeof value === 'object' && value !== null && 'toDate' in value ? 
+          (value as any).toDate?.()?.toISOString() || value : 
+          value
+      ])
+    ),
   });
+  
+  try {
+    // createdAtが既に設定されている場合はそのまま使用
+    // セキュリティルールの評価時には値が必要なため、serverTimestamp()は使わない
+    console.log('[createDocument] Calling setDoc...');
+    await setDoc(docRef, data);
+    console.log('[createDocument] Document created successfully');
+  } catch (error: any) {
+    console.error('[createDocument] Error occurred:', error);
+    console.error('[createDocument] Error code:', error?.code);
+    console.error('[createDocument] Error message:', error?.message);
+    console.error('[createDocument] Collection:', collectionName, 'DocId:', docId);
+    console.error('[createDocument] Data being written:', JSON.stringify(data, null, 2));
+    throw error;
+  }
 };
 
 /**

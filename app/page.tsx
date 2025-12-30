@@ -20,9 +20,9 @@ export default function Home() {
           </div>
           <Link
             href="/posts/new"
-            className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-pastel-pink-400 to-pastel-purple-500 px-6 py-3 font-medium text-white shadow-soft transition-all hover:shadow-soft-lg hover:scale-105 active:scale-95"
+            className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-pastel-pink-400 to-pastel-purple-500 px-6 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
           >
-            投稿する
+            ✨ 投稿する
           </Link>
         </div>
         <PostListWithSort />

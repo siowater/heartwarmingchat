@@ -19,17 +19,23 @@ export class UserService {
    * ユーザーを作成
    */
   static async createUser(data: CreateUserData): Promise<void> {
+    const userData: Omit<User, 'userId'> & { userId: string } = {
+      userId: data.userId,
+      authProvider: data.authProvider,
+      status: data.status || 'active',
+      createdAt: Timestamp.now(),
+      lastLoginAt: Timestamp.now(),
+    };
+
+    // nicknameが指定されている場合のみ追加（Firestoreはundefinedを許可しない）
+    if (data.nickname !== undefined && data.nickname !== null) {
+      userData.nickname = data.nickname;
+    }
+
     await createDocument<User>(
       this.COLLECTION_NAME,
       data.userId,
-      {
-        userId: data.userId,
-        nickname: data.nickname,
-        authProvider: data.authProvider,
-        status: data.status || 'active',
-        createdAt: Timestamp.now(),
-        lastLoginAt: Timestamp.now(),
-      }
+      userData
     );
   }
 
