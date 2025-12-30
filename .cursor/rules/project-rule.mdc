@@ -1,0 +1,389 @@
+---
+alwaysApply: true
+---
+
+# プロジェクトルール
+
+## 実装前の必須確認事項
+
+### ドキュメント確認ルール
+**実装を始める前に、必ず `docs/` ディレクトリ配下のドキュメントを確認すること。**
+
+1. **要件定義の確認** (`docs/requirements.md`)
+   - 実装する機能の要件を必ず確認
+   - サービスコンセプトと目的を理解してから実装開始
+
+2. **技術スタックの確認** (`docs/tech-stack.md`)
+   - 使用する技術とバージョンを確認
+   - 無料枠の制約を理解し、それを超えない実装を心がける
+
+3. **ドメイン定義の確認** (`docs/domain-definitions.md`)
+   - 実装する機能のドメイン定義を確認
+   - ビジネスルールと制約を理解してから実装
+
+4. **データベース設計の確認** (`docs/database.md`)
+   - Firestoreコレクションのスキーマを確認
+   - CRUD操作の権限と条件を理解
+
+5. **機能一覧の確認** (`docs/features.md`)
+   - 画面一覧、処理一覧、API一覧を確認
+   - 既存の設計と整合性を保つ
+
+6. **メッセージ一覧の確認** (`docs/messages.md`)
+   - エラーメッセージ、成功メッセージ、UIテキストを確認
+   - 既存のメッセージIDを使用し、一貫性を保つ
+
+7. **用語集の確認** (`docs/glossary.md`)
+   - プロジェクト固有の用語を確認
+   - 命名規則に従う
+
+## Next.js 16 ベストプラクティス（キャッシュコンポーネント無効）
+
+### App Routerの使用
+- **App Routerを必ず使用する**（Pages Routerは使用しない）
+- `app/` ディレクトリ配下でルーティングを管理
+- `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx` を適切に使用
+
+### Server ComponentsとClient Componentsの使い分け
+
+#### Server Components（デフォルト）
+- **デフォルトでServer Componentsを使用**
+- データフェッチング、データベースアクセス、APIキーの使用はServer Componentsで行う
+- `async/await` を直接使用可能
+- クライアント側のJavaScriptバンドルサイズを削減
+
+```typescript
+// ✅ Good: Server Component
+export default async function PostsPage() {
+  const posts = await getPosts();
+  return <PostsList posts={posts} />;
+}
+```
+
+#### Client Components（必要な場合のみ）
+- **インタラクティブな機能（onClick, useState, useEffect等）が必要な場合のみ使用**
+- `'use client'` ディレクティブをファイルの先頭に記述
+- ブラウザAPI（localStorage, window等）を使用する場合
+- フォーム、アニメーション、リアルタイム更新が必要な場合
+
+```typescript
+// ✅ Good: Client Component（インタラクションが必要な場合）
+'use client';
+
+import { useState } from 'react';
+
+export function ReactionButton() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>Like</button>;
+}
+```
+
+### データフェッチングパターン
+
+#### Server Componentsでのデータフェッチング
+- **Firestoreからのデータ取得はServer Componentsで行う**
+- `fetch()` を使用する場合は、Next.jsの自動キャッシュを活用
+- 必要に応じて `revalidate` オプションを使用
+
+```typescript
+// ✅ Good: Server Componentでのデータフェッチング
+async function getPosts() {
+  // Firestore SDKを使用
+  const snapshot = await db.collection('posts').get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export default async function PostsPage() {
+  const posts = await getPosts();
+  return <PostsList posts={posts} />;
+}
+```
+
+#### クライアント側でのデータフェッチング
+- **リアルタイム更新が必要な場合のみClient ComponentsでFirestoreのリアルタイムリスナーを使用**
+- 無料枠の読み取り回数を考慮し、必要最小限のリスナーに留める
+
+```typescript
+// ✅ Good: リアルタイム更新が必要な場合のみ
+'use client';
+
+import { useEffect, useState } from 'react';
+import { onSnapshot } from 'firebase/firestore';
+
+export function RealtimePosts() {
+  const [posts, setPosts] = useState([]);
+  
+  useEffect(() => {
+    const unsubscribe = onSnapshot(postsRef, (snapshot) => {
+      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+  
+  return <PostsList posts={posts} />;
+}
+```
+
+### ルーティングのベストプラクティス
+
+#### 動的ルート
+- 動的セグメントは `[param]` 形式で定義
+- `params` は非同期で取得（Next.js 16の変更）
+
+```typescript
+// ✅ Good: Next.js 16の非同期params
+export default async function PostPage({ 
+  params 
+}: { 
+  params: Promise<{ postId: string }> 
+}) {
+  const { postId } = await params;
+  const post = await getPost(postId);
+  return <PostDetail post={post} />;
+}
+```
+
+#### 検索パラメータ
+- `searchParams` も非同期で取得
+
+```typescript
+// ✅ Good: Next.js 16の非同期searchParams
+export default async function PostsPage({ 
+  searchParams 
+}: { 
+  searchParams: Promise<{ sort?: string }> 
+}) {
+  const { sort } = await searchParams;
+  const posts = await getPosts(sort);
+  return <PostsList posts={posts} />;
+}
+```
+
+### パフォーマンス最適化
+
+#### 画像最適化
+- `next/image` コンポーネントを必ず使用
+- `width`, `height`, `alt` 属性を適切に設定
+
+```typescript
+// ✅ Good: next/imageを使用
+import Image from 'next/image';
+
+<Image 
+  src="/image.jpg" 
+  width={500} 
+  height={300} 
+  alt="Description" 
+/>
+```
+
+#### フォント最適化
+- `next/font` を使用してフォントを最適化
+- Google Fontsを使用する場合は `next/font/google` を使用
+
+```typescript
+// ✅ Good: next/fontを使用
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+```
+
+#### コード分割
+- 動的インポート（`dynamic`）を使用して必要な場合のみコンポーネントを読み込む
+- 大きなライブラリは動的インポートを検討
+
+```typescript
+// ✅ Good: 動的インポート
+import dynamic from 'next/dynamic';
+
+const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+  loading: () => <p>Loading...</p>,
+  ssr: false, // クライアント側のみでレンダリング
+});
+```
+
+### エラーハンドリング
+
+#### Error Boundary
+- `error.tsx` ファイルを使用してエラーハンドリングを実装
+- ユーザーフレンドリーなエラーメッセージを表示
+
+```typescript
+// ✅ Good: error.tsx
+'use client';
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div>
+      <h2>エラーが発生しました</h2>
+      <button onClick={() => reset()}>もう一度試す</button>
+    </div>
+  );
+}
+```
+
+#### Loading States
+- `loading.tsx` ファイルを使用してローディング状態を表示
+- Suspense境界を適切に使用
+
+```typescript
+// ✅ Good: loading.tsx
+export default function Loading() {
+  return <div>読み込み中...</div>;
+}
+```
+
+### セキュリティ考慮事項
+
+#### 環境変数
+- 機密情報は `.env.local` に保存（Gitにコミットしない）
+- サーバー側のみで使用する変数は `NEXT_PUBLIC_` プレフィックスを付けない
+- クライアント側で使用する変数のみ `NEXT_PUBLIC_` プレフィックスを付ける
+
+```typescript
+// ✅ Good: 環境変数の使い分け
+// .env.local
+FIREBASE_ADMIN_KEY=xxx  // サーバー側のみ
+NEXT_PUBLIC_FIREBASE_API_KEY=xxx  // クライアント側でも使用
+```
+
+#### API Routes
+- API Routes（`app/api/`）は必要最小限に
+- 認証チェックを必ず実装
+- レート制限を考慮（無料枠対策）
+
+```typescript
+// ✅ Good: API Routeでの認証チェック
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  // 処理続行
+}
+```
+
+### 無料枠を意識した実装
+
+#### Firestore読み取り/書き込みの最適化
+- **不要な読み取りを避ける**: 必要なデータのみ取得
+- **バッチ処理の活用**: 複数の書き込みはバッチで実行
+- **キャッシュの活用**: 同じデータを何度も読み取らない
+- **ページネーション**: 大量データは分割して取得
+
+```typescript
+// ✅ Good: ページネーション実装
+async function getPosts(limit: number = 10, lastDoc?: DocumentSnapshot) {
+  let query = db.collection('posts')
+    .where('isHidden', '==', false)
+    .orderBy('createdAt', 'desc')
+    .limit(limit);
+  
+  if (lastDoc) {
+    query = query.startAfter(lastDoc);
+  }
+  
+  return await query.get();
+}
+```
+
+#### Vercel関数実行時間の最適化
+- **処理を軽量化**: 重い処理は避ける
+- **タイムアウトを考慮**: 10秒以内に完了する処理を心がける（Hobby Planの制限）
+
+### コード品質
+
+#### TypeScript
+- **型安全性を重視**: `any` の使用を避ける
+- **インターフェース定義**: データ構造は明確に定義
+- **型推論を活用**: 明示的な型定義が不要な場合は推論に任せる
+
+```typescript
+// ✅ Good: 型定義
+interface Post {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: Timestamp;
+}
+
+async function getPost(id: string): Promise<Post | null> {
+  // 実装
+}
+```
+
+#### 命名規則
+- **コンポーネント**: PascalCase（例: `PostCard.tsx`）
+- **関数・変数**: camelCase（例: `getPosts`, `postId`）
+- **定数**: UPPER_SNAKE_CASE（例: `MAX_POST_LENGTH`）
+- **ファイル名**: kebab-case（例: `post-card.tsx`）またはPascalCase（コンポーネントの場合）
+
+#### ファイル構造
+```
+app/
+  (routes)/
+    page.tsx
+    layout.tsx
+    loading.tsx
+    error.tsx
+  api/
+    (routes)/
+      route.ts
+components/
+  ui/
+    button.tsx
+  features/
+    posts/
+      post-card.tsx
+lib/
+  firebase/
+    config.ts
+    firestore.ts
+  utils/
+    format.ts
+types/
+  post.ts
+  user.ts
+```
+
+### その他のベストプラクティス
+
+#### メタデータ
+- `metadata` オブジェクトまたは `generateMetadata` 関数を使用してSEOを最適化
+
+```typescript
+// ✅ Good: メタデータ定義
+export const metadata = {
+  title: '優しさの交換サイト',
+  description: '心のモヤモヤを吐き出し、優しさを循環させるプラットフォーム',
+};
+```
+
+#### リダイレクトとリライト
+- `next.config.ts` でリダイレクトとリライトを設定
+- ミドルウェア（`middleware.ts`）で認証チェックやリダイレクトを実装
+
+#### スタイリング
+- Tailwind CSSを使用する場合は、`tailwind.config.ts` でカスタム設定を定義
+- パステルカラーや丸みのあるデザインを実装（要件定義に基づく）
+
+## 実装時のチェックリスト
+
+実装前に以下を確認：
+
+- [ ] `docs/` ディレクトリの関連ドキュメントを確認した
+- [ ] Server ComponentとClient Componentの使い分けが適切か
+- [ ] データフェッチングは最適化されているか（無料枠を考慮）
+- [ ] エラーハンドリングが実装されているか
+- [ ] 型定義が適切か
+- [ ] 命名規則に従っているか
+- [ ] セキュリティ考慮事項を満たしているか
+- [ ] パフォーマンス最適化が施されているか

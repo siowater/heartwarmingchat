@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAFAF9;
+  --foreground: #1C1917;
+  
+  /* パステルカラー */
+  --pastel-pink: #FFE4EC;
+  --pastel-purple: #E9E0FF;
+  --pastel-blue: #E0EBFF;
+  --pastel-green: #E0FFE9;
 }
 
 @theme inline {
@@ -12,15 +18,67 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+/* スムーズなスクロール */
+html {
+  scroll-behavior: smooth;
+}
+
+/* カスタムスクロールバー */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5F5F4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D6D3D1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}
+
+/* フォーカスリングのカスタマイズ */
+*:focus-visible {
+  outline: 2px solid #8E75FF;
+  outline-offset: 2px;
+}
+
+/* 植物・自然の装飾要素用のクラス */
+.nature-decoration {
+  position: relative;
+}
+
+.nature-decoration::before {
+  content: '🌿';
+  position: absolute;
+  opacity: 0.1;
+  font-size: 2rem;
+  pointer-events: none;
+}
+
+/* ポジティブなフィードバックアニメーション */
+@keyframes positiveFeedback {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.positive-feedback {
+  animation: positiveFeedback 0.3s ease-in-out;
 }

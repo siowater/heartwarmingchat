@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 優しさの交換サイト
 
-## Getting Started
+心のモヤモヤを吐き出し、優しさを循環させるプラットフォームです。
 
-First, run the development server:
+## プロジェクト概要
+
+不特定多数のユーザーが匿名で心のモヤモヤを吐き出し、AIではなく生の人間が優しい言葉や励ましを投げかけることで、優しさを循環させるプラットフォームです。
+
+## 技術スタック
+
+- **フロントエンド**: Next.js 16.1.1 (App Router)
+- **UI**: React 19.2.3, Tailwind CSS 4
+- **バックエンド**: Firebase (Firestore, Authentication) / モックモード対応
+- **ホスティング**: Vercel
+- **言語**: TypeScript
+
+## セットアップ
+
+### 1. リポジトリのクローン
+
+```bash
+git clone <repository-url>
+cd heartwarming-chat
+```
+
+### 2. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 3. 環境変数の設定
+
+`.env.local` ファイルを作成し、以下のいずれかを設定してください：
+
+#### モックモード（Firebase設定不要）
+
+```env
+NEXT_PUBLIC_USE_MOCK=true
+```
+
+#### Firebase設定（本番環境用）
+
+```env
+NEXT_PUBLIC_USE_MOCK=false
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
+```
+
+詳細は [Firebase設定ガイド](docs/firebase-setup.md) を参照してください。
+
+### 4. 開発サーバーの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開きます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## モックモードについて
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Firebase設定が完了していない場合でも、モックモードを使用してアプリケーションを動作確認できます。
 
-## Learn More
+モックモードでは：
+- メモリ上でデータを管理（ページリロードでリセット）
+- サンプルデータが自動的に生成されます
+- すべての機能が動作します（投稿、返信、リアクション、通知など）
 
-To learn more about Next.js, take a look at the following resources:
+モックモードを有効にするには、`.env.local` に以下を追加：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+NEXT_PUBLIC_USE_MOCK=true
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## プロジェクト構造
 
-## Deploy on Vercel
+```
+heartwarming-chat/
+├── app/                    # Next.js App Router
+│   ├── login/             # ログインページ
+│   ├── settings/         # 設定ページ
+│   ├── layout.tsx        # ルートレイアウト
+│   └── page.tsx          # ホームページ
+├── components/           # Reactコンポーネント
+│   ├── auth/             # 認証関連コンポーネント
+│   ├── layout/           # レイアウトコンポーネント
+│   └── settings/         # 設定関連コンポーネント
+├── lib/                  # ライブラリ・ユーティリティ
+│   ├── firebase/         # Firebase設定・ヘルパー
+│   ├── mock/             # モック実装
+│   └── services/         # ビジネスロジック
+├── types/                # TypeScript型定義
+├── docs/                 # プロジェクトドキュメント
+├── firestore.rules       # Firestoreセキュリティルール
+└── firestore.indexes.json # Firestoreインデックス設定
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ドキュメント
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [要件定義書](docs/requirements.md)
+- [技術スタック](docs/tech-stack.md)
+- [進捗管理](docs/progress.md)
+- [データベース設計](docs/database.md)
+- [機能一覧](docs/features.md)
+- [Firebase設定ガイド](docs/firebase-setup.md)
+- [デプロイ手順書](docs/deployment.md)
+- [テスト手順書](docs/testing.md)
+
+## 開発ルール
+
+実装を始める前に、必ず `docs/` ディレクトリ配下のドキュメントを確認してください。
+
+詳細は [プロジェクトルール](.cursor/rules/project-rule.mdc) を参照してください。
+
+## ライセンス
+
+このプロジェクトは非営利目的で開発されています。

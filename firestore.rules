@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ヘルパー関数: 認証済みユーザーかチェック
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // ヘルパー関数: 自分のデータかチェック
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ヘルパー関数: アクティブなユーザーかチェック
+    function isActiveUser(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.status == 'active';
+    }
+
+    // usersコレクション
+    match /users/{userId} {
+      // 読み取り: 自分の情報のみ読み取り可能
+      allow read: if isOwner(userId);
+      
+      // 作成: 認証済みユーザーが自分のユーザーIDで作成可能
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // 更新: 自分の情報のみ更新可能
+      allow update: if isOwner(userId);
+      
+      // 削除: 削除不可（論理削除のみ）
+      allow delete: if false;
+    }
+
+    // postsコレクション
+    match /posts/{postId} {
+      // 読み取り: 非表示でない投稿は全ユーザーが読み取り可能
+      allow read: if resource.data.isHidden == false;
+      
+      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      allow create: if isAuthenticated() 
+        && isActiveUser(request.auth.uid)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 1000
+        && request.resource.data.reportCount == 0
+        && request.resource.data.isHidden == false;
+      
+      // 更新: 投稿者のみ更新可能
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      
+      // 削除: 削除不可（論理削除のみ）
+      allow delete: if false;
+    }
+
+    // repliesコレクション
+    match /replies/{replyId} {
+      // 読み取り: 非表示でない返信は全ユーザーが読み取り可能
+      allow read: if resource.data.isHidden == false;
+      
+      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 自分の投稿には返信できない（投稿のuserIdと返信のuserIdが異なる必要がある）
+      allow create: if isAuthenticated()
+        && isActiveUser(request.auth.uid)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 500
+        && request.resource.data.reportCount == 0
+        && request.resource.data.isHidden == false
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.userId != request.auth.uid;
+      
+      // 更新: 返信者のみ更新可能
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      
+      // 削除: 削除不可（論理削除のみ）
+      allow delete: if false;
+    }
+
+    // reactionsコレクション
+    match /reactions/{reactionId} {
+      // 読み取り: 全ユーザーが読み取り可能
+      allow read: if true;
+      
+      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      // 自分の投稿・返信にはリアクションできない
+      allow create: if isAuthenticated()
+        && isActiveUser(request.auth.uid)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.reactionType in ['ありがとう', '心が温まった', '応援してる']
+        && (
+          (request.resource.data.targetType == 'post' 
+            && exists(/databases/$(database)/documents/posts/$(request.resource.data.targetId))
+            && get(/databases/$(database)/documents/posts/$(request.resource.data.targetId)).data.userId != request.auth.uid)
+          || (request.resource.data.targetType == 'reply'
+            && exists(/databases/$(database)/documents/replies/$(request.resource.data.targetId))
+            && get(/databases/$(database)/documents/replies/$(request.resource.data.targetId)).data.userId != request.auth.uid)
+        );
+      
+      // 更新: 更新不可
+      allow update: if false;
+      
+      // 削除: 自分のリアクションのみ削除可能
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // contributionsコレクション
+    match /contributions/{userId} {
+      // 読み取り: 全ユーザーが読み取り可能
+      allow read: if true;
+      
+      // 作成・更新・削除: システムのみ（Cloud Functions等）
+      allow write: if false;
+    }
+
+    // notificationsコレクション
+    match /notifications/{notificationId} {
+      // 読み取り: 自分の通知のみ読み取り可能
+      allow read: if isOwner(resource.data.userId);
+      
+      // 作成: システムのみ（Cloud Functions等）
+      allow create: if false;
+      
+      // 更新: 自分の通知のみ更新可能（既読フラグ等）
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      
+      // 削除: 削除不可（自動削除のみ）
+      allow delete: if false;
+    }
+
+    // reportsコレクション
+    match /reports/{reportId} {
+      // 読み取り: 自分の通報のみ読み取り可能
+      allow read: if isOwner(resource.data.reporterUserId);
+      
+      // 作成: 認証済みかつアクティブなユーザーのみ作成可能
+      allow create: if isAuthenticated()
+        && isActiveUser(request.auth.uid)
+        && request.resource.data.reporterUserId == request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.status == 'pending';
+      
+      // 更新: 管理者のみ（将来実装）
+      allow update: if false;
+      
+      // 削除: 削除不可
+      allow delete: if false;
+    }
+
+    // ngWordsコレクション
+    match /ngWords/{ngWordId} {
+      // 読み取り: システムのみ（フィルタリング処理で使用）
+      allow read: if false;
+      
+      // 作成・更新・削除: 管理者のみ（将来実装）
+      allow write: if false;
+    }
+  }
+}
+
