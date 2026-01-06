@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { ReactionService } from '@/lib/services/reaction.service';
 import { ReactionType } from '@/types/reaction';
@@ -11,6 +11,7 @@ interface ReactionButtonsProps {
   targetId: string;
   initialCounts: Record<string, number>;
   onReactionChange?: () => void;
+  ownerUserId?: string; // 投稿/返信の所有者ID（自分の投稿/返信の場合は無効化）
 }
 
 const REACTION_TYPES: ReactionType[] = ['ありがとう', '心が温まった', '応援してる'];
@@ -20,25 +21,21 @@ export default function ReactionButtons({
   targetId,
   initialCounts,
   onReactionChange,
+  ownerUserId,
 }: ReactionButtonsProps) {
   const { user } = useAuth();
   const [counts, setCounts] = useState<Record<string, number>>(initialCounts);
   const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // 自分の投稿/返信かどうかをチェック
+  const isOwnContent = user && ownerUserId && user.uid === ownerUserId;
 
   useEffect(() => {
     setCounts(initialCounts);
   }, [initialCounts]);
 
-  useEffect(() => {
-    if (user) {
-      loadUserReaction();
-    } else {
-      setUserReaction(null);
-    }
-  }, [user, targetType, targetId]);
-
-  const loadUserReaction = async () => {
+  const loadUserReaction = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -47,10 +44,24 @@ export default function ReactionButtons({
     } catch (err) {
       console.error('リアクションの取得に失敗:', err);
     }
-  };
+  }, [user, targetType, targetId]);
+
+  useEffect(() => {
+    if (user) {
+      void loadUserReaction();
+    } else {
+      setUserReaction(null);
+    }
+  }, [user, loadUserReaction]);
 
   const handleReaction = async (reactionType: ReactionType) => {
     if (!user) {
+      return;
+    }
+
+    // 自分の投稿/返信にはリアクションできない
+    if (isOwnContent) {
+      showToast('自分の投稿・返信にはリアクションできません。', 'error');
       return;
     }
 
@@ -120,7 +131,7 @@ export default function ReactionButtons({
           <button
             key={reactionType}
             onClick={() => handleReaction(reactionType)}
-            disabled={loading || !user}
+            disabled={loading || !user || isOwnContent}
             className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
               isActive
                 ? 'bg-purple-100 text-purple-700 ring-2 ring-purple-300'
@@ -137,6 +148,11 @@ export default function ReactionButtons({
       {!user && (
         <span className="text-xs text-gray-500 self-center">
           ログインしてリアクションを送りましょう
+        </span>
+      )}
+      {isOwnContent && user && (
+        <span className="text-xs text-gray-500 self-center">
+          自分の投稿・返信にはリアクションできません
         </span>
       )}
     </div>

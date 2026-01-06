@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { Post, CreatePostData, UpdatePostData } from '@/types/post';
 import { filterNGWords } from '../utils/ng-word-filter';
-import { ReactionService } from './reaction.service';
+import { FirebaseError } from 'firebase/app';
 
 /**
  * 投稿サービス
@@ -55,7 +55,7 @@ export class PostService {
     const docs = snapshot.docs;
     const hasMore = docs.length > limitCount;
     const posts = (hasMore ? docs.slice(0, limitCount) : docs).map(
-      (doc) => ({ id: doc.id, ...doc.data() } as Post)
+      (doc) => ({ id: doc.id, ...doc.data() } as unknown as Post)
     );
 
     return {
@@ -80,7 +80,7 @@ export class PostService {
     const allPosts = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Post[];
+    })) as unknown as Post[];
 
     // ランダムに選択
     const shuffled = allPosts.sort(() => Math.random() - 0.5);
@@ -91,19 +91,38 @@ export class PostService {
    * リアクション数順の投稿を取得
    */
   static async getPostsByReactions(limitCount: number = 10): Promise<Post[]> {
-    const snapshot = await getDocs(
-      query(
-        getCollectionRef(this.COLLECTION_NAME),
-        where('isHidden', '==', false),
-        orderBy('reactionCount', 'desc'),
-        limit(limitCount)
-      )
+    // まず全ての投稿を取得（最大100件）
+    const allPostsQuery = query(
+      getCollectionRef(this.COLLECTION_NAME),
+      where('isHidden', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
 
-    return snapshot.docs.map((doc) => ({
+    const snapshot = await getDocs(allPostsQuery);
+    const allPosts = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Post[];
+
+    // 各投稿のリアクション数を取得してソート
+    const { ReactionService } = await import('./reaction.service');
+    const postsWithReactions = await Promise.all(
+      allPosts.map(async (post) => {
+        const reactions = await ReactionService.getReactionCounts('post', post.postId);
+        const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0);
+        return {
+          post,
+          totalReactions,
+        };
+      })
+    );
+
+    // リアクション数でソート
+    postsWithReactions.sort((a, b) => b.totalReactions - a.totalReactions);
+
+    // 上位limitCount件を返す
+    return postsWithReactions.slice(0, limitCount).map((item) => item.post);
   }
 
   /**
@@ -122,7 +141,7 @@ export class PostService {
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Post[];
+    })) as unknown as Post[];
   }
 
   /**
@@ -160,10 +179,11 @@ export class PostService {
       if (userPostsSnapshot.size >= this.MAX_POSTS_PER_DAY) {
         throw new Error(`1日の投稿数は${this.MAX_POSTS_PER_DAY}件までです。`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const firebaseError = error as FirebaseError;
       console.error('[PostService.createPost] Error during daily post limit check:', error);
-      console.error('[PostService.createPost] Error code:', error?.code);
-      console.error('[PostService.createPost] Error message:', error?.message);
+      console.error('[PostService.createPost] Error code:', firebaseError?.code);
+      console.error('[PostService.createPost] Error message:', firebaseError?.message);
       throw error;
     }
 
@@ -190,10 +210,11 @@ export class PostService {
       console.log('Current user:', data.userId);
       await createDocument<Post>(this.COLLECTION_NAME, postId, post);
       return postId;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const firebaseError = error as FirebaseError;
       console.error('PostService.createPost error:', error);
-      console.error('Error code:', error?.code);
-      console.error('Error message:', error?.message);
+      console.error('Error code:', firebaseError?.code);
+      console.error('Error message:', firebaseError?.message);
       console.error('Post data:', JSON.stringify(post, null, 2));
       console.error('PostId:', postId);
       throw error;

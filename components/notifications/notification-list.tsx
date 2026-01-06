@@ -5,6 +5,7 @@ import { Notification } from '@/types/notification';
 import { NotificationService } from '@/lib/services/notification.service';
 import { timestampToDate } from '@/lib/firebase/firestore';
 import { useAuth } from '@/components/auth/auth-provider';
+import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
 
 interface NotificationListProps {
@@ -62,7 +63,7 @@ export default function NotificationList({ initialNotifications }: NotificationL
 
   const formatDate = (timestamp: unknown) => {
     if (!timestamp) return '';
-    const date = timestampToDate(timestamp);
+    const date = timestampToDate(timestamp as Timestamp | Date | string | null | undefined);
     if (!date) return '';
     
     const now = new Date();

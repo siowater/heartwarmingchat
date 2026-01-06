@@ -48,7 +48,7 @@ export class ReplyService {
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Reply[];
+    })) as unknown as Reply[];
   }
 
   /**
@@ -67,7 +67,7 @@ export class ReplyService {
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Reply[];
+    })) as unknown as Reply[];
   }
 
   /**
@@ -86,8 +86,8 @@ export class ReplyService {
     }
 
     // NGワードチェック
-    const filteredContent = filterNGWords(data.content);
-    if (filteredContent !== data.content) {
+    const filterResult = filterNGWords(data.content);
+    if (!filterResult.passed) {
       throw new Error('返信内容に不適切な表現が含まれています。');
     }
 

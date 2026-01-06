@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/auth-provider';
 import { UserService } from '@/lib/services/user.service';
 import { User } from '@/types/user';
+import { signOutUser } from '@/lib/firebase/auth';
 
 export default function SettingsForm() {
   const router = useRouter();

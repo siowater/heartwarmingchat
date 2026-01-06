@@ -9,6 +9,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app';
 import { getFirestoreDb } from './config';
 
 // Firestoreヘルパー関数
@@ -61,7 +62,7 @@ export const createDocument = async <T extends Record<string, unknown>>(
         key,
         value instanceof Date ? value.toISOString() : 
         typeof value === 'object' && value !== null && 'toDate' in value ? 
-          (value as any).toDate?.()?.toISOString() || value : 
+          (value as { toDate?: () => Date }).toDate?.()?.toISOString() || value : 
           value
       ])
     ),
@@ -73,10 +74,11 @@ export const createDocument = async <T extends Record<string, unknown>>(
     console.log('[createDocument] Calling setDoc...');
     await setDoc(docRef, data);
     console.log('[createDocument] Document created successfully');
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseError;
     console.error('[createDocument] Error occurred:', error);
-    console.error('[createDocument] Error code:', error?.code);
-    console.error('[createDocument] Error message:', error?.message);
+    console.error('[createDocument] Error code:', firebaseError?.code);
+    console.error('[createDocument] Error message:', firebaseError?.message);
     console.error('[createDocument] Collection:', collectionName, 'DocId:', docId);
     console.error('[createDocument] Data being written:', JSON.stringify(data, null, 2));
     throw error;
@@ -163,10 +165,16 @@ export const batchWrite = async (
 
 /**
  * タイムスタンプをDateに変換
+ * Timestamp、Date、ISO文字列、unknownのいずれも受け入れる
  */
-export const timestampToDate = (timestamp: Timestamp | null | undefined): Date | null => {
+export const timestampToDate = (timestamp: Timestamp | Date | string | null | undefined | unknown): Date | null => {
   if (!timestamp) return null;
-  return timestamp.toDate();
+  if (timestamp instanceof Date) return timestamp;
+  if (typeof timestamp === 'string') return new Date(timestamp);
+  if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+    return (timestamp as Timestamp).toDate();
+  }
+  return null;
 };
 
 /**

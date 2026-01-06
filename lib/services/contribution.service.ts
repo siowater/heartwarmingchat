@@ -1,7 +1,6 @@
 import {
   getCollectionRef,
   getDocument,
-  createDocument,
   updateDocument,
 } from '../firebase/firestore';
 import {
@@ -56,10 +55,11 @@ export class ContributionService {
       replyCount,
       reactionCount,
       receivedReactionCount,
-      lastUpdatedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     };
 
-    await updateDocument(this.COLLECTION_NAME, userId, contribution, true);
+    await updateDocument(this.COLLECTION_NAME, userId, contribution as unknown as Partial<Record<string, unknown>>);
   }
 
   /**
@@ -116,7 +116,7 @@ export class ContributionService {
       )
     );
 
-    const contributions = snapshot.docs.map((doc) => doc.data() as Contribution);
+    const contributions = snapshot.docs.map((doc) => doc.data() as unknown as Contribution);
     const index = contributions.findIndex((c) => c.userId === userId);
     return index >= 0 ? index + 1 : 0;
   }
@@ -133,7 +133,7 @@ export class ContributionService {
       )
     );
 
-    return snapshot.docs.map((doc) => doc.data() as Contribution);
+    return snapshot.docs.map((doc) => doc.data() as unknown as Contribution);
   }
 
   /**

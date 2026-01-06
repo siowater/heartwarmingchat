@@ -1,6 +1,5 @@
 import {
   getCollectionRef,
-  getDocument,
   createDocument,
 } from '../firebase/firestore';
 import {

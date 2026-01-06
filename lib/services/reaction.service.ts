@@ -9,7 +9,7 @@ import {
   getDocs,
   Timestamp,
 } from 'firebase/firestore';
-import { Reaction, CreateReactionData, ReactionType } from '@/types/reaction';
+import { Reaction, CreateReactionData } from '@/types/reaction';
 import { PostService } from './post.service';
 import { ReplyService } from './reply.service';
 import { NotificationService } from './notification.service';
@@ -42,7 +42,7 @@ export class ReactionService {
     }
 
     const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as Reaction;
+    return { id: doc.id, ...doc.data() } as unknown as Reaction;
   }
 
   /**
@@ -67,7 +67,7 @@ export class ReactionService {
     };
 
     snapshot.docs.forEach((doc) => {
-      const reaction = doc.data() as Reaction;
+      const reaction = doc.data() as unknown as Reaction;
       counts[reaction.reactionType] = (counts[reaction.reactionType] || 0) + 1;
     });
 

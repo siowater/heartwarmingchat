@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/auth-provider';
 import { PostService } from '@/lib/services/post.service';
+import { filterNGWords } from '@/lib/utils/ng-word-filter';
+import { timestampToDate } from '@/lib/firebase/firestore';
 import { showToast } from '@/components/ui/toast';
 
 const MAX_LENGTH = 1000;
@@ -14,6 +16,39 @@ export default function PostCreateForm() {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dailyPostCount, setDailyPostCount] = useState<number | null>(null);
+  const [checkingLimit, setCheckingLimit] = useState(false);
+
+  // 1日の投稿数制限をチェック
+  useEffect(() => {
+    const checkDailyLimit = async () => {
+      if (!user) {
+        setDailyPostCount(null);
+        return;
+      }
+
+      try {
+        setCheckingLimit(true);
+        const userPosts = await PostService.getUserPosts(user.uid);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayPosts = userPosts.filter(post => {
+          const postDate = timestampToDate(post.createdAt);
+          if (!postDate) return false;
+          return postDate >= today;
+        });
+        setDailyPostCount(todayPosts.length);
+      } catch (err) {
+        console.error('投稿数チェックに失敗:', err);
+      } finally {
+        setCheckingLimit(false);
+      }
+    };
+
+    if (user) {
+      void checkDailyLimit();
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +66,21 @@ export default function PostCreateForm() {
 
     if (content.length > MAX_LENGTH) {
       setError(`投稿内容は${MAX_LENGTH}文字以内で入力してください。（現在: ${content.length}文字）`);
+      return;
+    }
+
+    // 1日の投稿数制限チェック
+    if (dailyPostCount !== null && dailyPostCount >= 10) {
+      setError('1日の投稿数は10件までです。明日またお願いします。');
+      showToast('1日の投稿数は10件までです。', 'error');
+      return;
+    }
+
+    // NGワードチェック（事前チェック）
+    const ngWordResult = filterNGWords(content.trim());
+    if (!ngWordResult.passed) {
+      setError('投稿内容に不適切な表現が含まれています。');
+      showToast('投稿内容に不適切な表現が含まれています。', 'error');
       return;
     }
 
@@ -113,9 +163,15 @@ export default function PostCreateForm() {
         </div>
 
         <div className="pt-4">
+          {dailyPostCount !== null && dailyPostCount >= 10 && (
+            <div className="mb-4 rounded-2xl bg-pastel-yellow-50 border border-pastel-yellow-300 p-4 text-sm text-warm-800">
+              <p className="font-medium">1日の投稿数制限に達しています</p>
+              <p className="mt-1 text-xs">今日は既に10件の投稿をしています。明日またお願いします。</p>
+            </div>
+          )}
           <button
             type="submit"
-            disabled={isSubmitting || content.trim().length === 0}
+            disabled={isSubmitting || content.trim().length === 0 || (dailyPostCount !== null && dailyPostCount >= 10) || checkingLimit}
             className="w-full rounded-2xl bg-gradient-to-r from-pastel-pink-400 to-pastel-purple-500 px-6 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-lg"
           >
             {isSubmitting ? (
@@ -123,6 +179,13 @@ export default function PostCreateForm() {
                 <span className="animate-spin">⏳</span>
                 投稿中...
               </span>
+            ) : checkingLimit ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin">⏳</span>
+                確認中...
+              </span>
+            ) : dailyPostCount !== null && dailyPostCount >= 10 ? (
+              <span>投稿制限に達しています</span>
             ) : (
               <span className="flex items-center justify-center gap-2">
                 ✨ 投稿する

@@ -57,6 +57,10 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "postId",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "isHidden",
           "order": "ASCENDING"
         },
@@ -70,6 +74,38 @@
       "collectionGroup": "replies",
       "queryScope": "COLLECTION",
       "fields": [
+        {
+          "fieldPath": "isHidden",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "replies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "replies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isHidden",
+          "order": "ASCENDING"
+        },
         {
           "fieldPath": "userId",
           "order": "ASCENDING"

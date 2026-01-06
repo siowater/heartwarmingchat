@@ -30,7 +30,7 @@ export class NotificationService {
     const notificationId = this.generateNotificationId(data.userId, data.targetId);
 
     // 通知を作成
-    await createDocument<Notification>(
+    await createDocument(
       this.COLLECTION_NAME,
       notificationId,
       {
@@ -42,7 +42,7 @@ export class NotificationService {
         message: data.message,
         isRead: false,
         createdAt: Timestamp.now(),
-      }
+      } as unknown as Omit<Notification, 'id'>
     );
 
     // 最大件数を超えた場合、古い通知を削除
@@ -117,7 +117,7 @@ export class NotificationService {
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Notification[];
+    })) as unknown as Notification[];
   }
 
   /**

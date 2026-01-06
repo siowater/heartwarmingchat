@@ -15,7 +15,11 @@ interface PostListProps {
 
 export default function PostList({ initialPosts = [], sortType = 'new' }: PostListProps) {
   const { user } = useAuth();
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  // initialPostsから重複を除去
+  const uniqueInitialPosts = Array.from(
+    new Map(initialPosts.map(p => [p.postId, p])).values()
+  );
+  const [posts, setPosts] = useState<Post[]>(uniqueInitialPosts);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
@@ -28,15 +32,28 @@ export default function PostList({ initialPosts = [], sortType = 'new' }: PostLi
       
       if (sortType === 'random') {
         const randomPosts = await PostService.getRandomPosts(10);
-        setPosts(randomPosts);
+        // 重複を除去
+        const uniquePosts = Array.from(
+          new Map(randomPosts.map(p => [p.postId, p])).values()
+        );
+        setPosts(uniquePosts);
         setHasMore(false);
       } else if (sortType === 'reactions') {
         const reactionPosts = await PostService.getPostsByReactions(10);
-        setPosts(reactionPosts);
+        // 重複を除去
+        const uniquePosts = Array.from(
+          new Map(reactionPosts.map(p => [p.postId, p])).values()
+        );
+        setPosts(uniquePosts);
         setHasMore(false);
       } else {
         const result = await PostService.getPosts(10, lastDoc);
-        setPosts((prev) => [...prev, ...result.posts]);
+        setPosts((prev) => {
+          // 重複を除去（postIdでユニークにする）
+          const existingIds = new Set(prev.map(p => p.postId));
+          const newPosts = result.posts.filter(p => !existingIds.has(p.postId));
+          return [...prev, ...newPosts];
+        });
         setLastDoc(result.lastDoc);
         setHasMore(result.posts.length === 10);
       }

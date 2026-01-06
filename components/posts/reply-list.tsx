@@ -84,8 +84,11 @@ function ReplyItem({
   }, [reply.replyId]);
 
   useEffect(() => {
-    // 非同期関数を呼び出す
-    void loadReactionCounts();
+    // 非同期関数を呼び出す（コールバック内で実行）
+    const fetchCounts = async () => {
+      await loadReactionCounts();
+    };
+    void fetchCounts();
   }, [loadReactionCounts]);
 
   const handleReactionChange = () => {
@@ -111,6 +114,7 @@ function ReplyItem({
         targetId={reply.replyId}
         initialCounts={reactionCounts}
         onReactionChange={handleReactionChange}
+        ownerUserId={reply.userId}
       />
     </div>
   );

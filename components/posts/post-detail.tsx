@@ -8,13 +8,19 @@ import { ReplyService } from '@/lib/services/reply.service';
 import { ReactionService } from '@/lib/services/reaction.service';
 import { timestampToDate } from '@/lib/firebase/firestore';
 import { useAuth } from '@/components/auth/auth-provider';
+import { Timestamp } from 'firebase/firestore';
 import ReplyForm from './reply-form';
 import ReplyList from './reply-list';
 import ReactionButtons from './reaction-buttons';
 import ReportButton from '@/components/reports/report-button';
 
 interface PostDetailProps {
-  post: Post;
+  post: Omit<Post, 'createdAt' | 'updatedAt' | 'deletedAt' | 'archivedAt'> & {
+    createdAt: string | Date | Timestamp;
+    updatedAt?: string | Date | Timestamp;
+    deletedAt?: string | Date | Timestamp;
+    archivedAt?: string | Date | Timestamp;
+  };
 }
 
 export default function PostDetail({ post }: PostDetailProps) {
@@ -105,6 +111,7 @@ export default function PostDetail({ post }: PostDetailProps) {
           targetId={post.postId}
           initialCounts={reactionCounts}
           onReactionChange={loadReactionCounts}
+          ownerUserId={post.userId}
         />
       </div>
 
@@ -113,7 +120,19 @@ export default function PostDetail({ post }: PostDetailProps) {
           優しい言葉を届けましょう
         </h2>
         {user ? (
-          <ReplyForm postId={post.postId} onReplyCreated={loadReplies} />
+          user.uid === post.userId ? (
+            <div className="rounded-2xl bg-pastel-blue-50 border border-pastel-blue-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">💭</span>
+                <p className="text-warm-700 font-medium">自分の投稿には返信できません</p>
+              </div>
+              <p className="text-warm-600 text-sm">
+                他のユーザーからの優しい言葉をお待ちください。優しさを循環させましょう。
+              </p>
+            </div>
+          ) : (
+            <ReplyForm postId={post.postId} onReplyCreated={loadReplies} postOwnerId={post.userId} />
+          )
         ) : (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-gray-600 mb-4">返信するにはログインが必要です。</p>
